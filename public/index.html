@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DOOM Lobby</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #111;
+      color: #eee;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    #header {
+      padding: 16px;
+      text-align: center;
+      z-index: 10;
+    }
+
+    #header h1 {
+      font-size: 28px;
+      color: #c00;
+      text-shadow: 0 0 20px rgba(204, 0, 0, 0.5);
+      letter-spacing: 4px;
+    }
+
+    #header .subtitle {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* ── Landing page ── */
+    #landing {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      flex: 1;
+      padding: 40px;
+    }
+
+    .btn {
+      background: #c00;
+      color: #fff;
+      border: none;
+      padding: 16px 40px;
+      font-family: 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #e00;
+      transform: scale(1.05);
+    }
+
+    .btn-secondary {
+      background: #333;
+    }
+
+    .btn-secondary:hover {
+      background: #555;
+    }
+
+    /* ── Lobby ── */
+    #lobby {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+      flex: 1;
+    }
+
+    #lobby-info {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      padding: 20px;
+      border-radius: 4px;
+      text-align: center;
+      min-width: 320px;
+    }
+
+    #lobby-info .player-count {
+      font-size: 48px;
+      color: #c00;
+      font-weight: bold;
+    }
+
+    #lobby-info .player-max {
+      font-size: 14px;
+      color: #666;
+    }
+
+    #player-list {
+      list-style: none;
+      margin: 12px 0;
+    }
+
+    #player-list li {
+      padding: 4px 0;
+      color: #aaa;
+      font-size: 14px;
+    }
+
+    #player-list li::before {
+      content: '> ';
+      color: #c00;
+    }
+
+    .share-section {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #share-url {
+      background: #222;
+      border: 1px solid #444;
+      color: #eee;
+      padding: 10px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      width: 300px;
+      text-align: center;
+    }
+
+    .btn-copy {
+      background: #333;
+      color: #eee;
+      border: 1px solid #444;
+      padding: 10px 16px;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-copy:hover { background: #444; }
+
+    #qr-container {
+      background: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    #qr-container canvas {
+      display: block;
+    }
+
+    /* ── Game ── */
+    #game-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      width: 100%;
+    }
+
+    #doom-canvas {
+      background: #000;
+      image-rendering: pixelated;
+      cursor: crosshair;
+    }
+
+    #game-status {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* ── Loading ── */
+    #loading {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      flex: 1;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #333;
+      border-top-color: #c00;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading-text {
+      font-size: 14px;
+      color: #888;
+    }
+
+    /* ── Name input ── */
+    #name-input {
+      background: #222;
+      border: 1px solid #444;
+      color: #eee;
+      padding: 10px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      text-align: center;
+      width: 200px;
+    }
+
+    #name-input::placeholder {
+      color: #555;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1>DOOM LOBBY</h1>
+    <div class="subtitle">click link. play doom. kill friends.</div>
+  </div>
+
+  <!-- Landing -->
+  <div id="landing">
+    <button class="btn" onclick="startSolo()">SOLO</button>
+    <button class="btn" onclick="createLobby()">HOST DEATHMATCH</button>
+    <div style="color: #444; font-size: 12px; margin-top: 20px;">
+      or join a game by pasting a lobby link
+    </div>
+  </div>
+
+  <!-- Lobby (waiting room) -->
+  <div id="lobby">
+    <div id="lobby-info">
+      <div class="player-count" id="player-count">1</div>
+      <div class="player-max">/ 4 players</div>
+      <ul id="player-list"></ul>
+    </div>
+
+    <div style="margin: 8px 0;">
+      <input id="name-input" type="text" placeholder="Your name" maxlength="16"
+             onkeyup="sendName(this.value)" />
+    </div>
+
+    <div class="share-section">
+      <input id="share-url" type="text" readonly />
+      <button class="btn-copy" onclick="copyLink()">COPY</button>
+    </div>
+
+    <div id="qr-container">
+      <canvas id="qr-canvas"></canvas>
+    </div>
+
+    <button class="btn" id="start-btn" onclick="startGame()">START GAME</button>
+    <div id="waiting-msg" class="hidden" style="color: #888; font-size: 13px;">
+      Waiting for host to start...
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading">
+    <div class="spinner"></div>
+    <div id="loading-text">Loading DOOM...</div>
+  </div>
+
+  <!-- Game -->
+  <div id="game-container">
+    <canvas id="doom-canvas" tabindex="1"></canvas>
+    <div id="game-status"></div>
+  </div>
+
+  <!-- QR Code library (tiny, inline) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+
+  <script>
+    // ─── State ────────────────────────────────────────────────────────────
+    let lobbyId = null;
+    let isHost = false;
+    let lobbyWs = null;
+    let playerName = `Marine-${Math.random().toString(36).slice(2, 6)}`;
+
+    // Check if we landed on /play/:id
+    const pathMatch = window.location.pathname.match(/^\/play\/([a-z0-9]+)$/);
+    if (pathMatch) {
+      lobbyId = pathMatch[1];
+      isHost = false;
+      joinLobby(lobbyId);
+    }
+
+    // ─── Views ────────────────────────────────────────────────────────────
+    function showView(id) {
+      ['landing', 'lobby', 'loading', 'game-container'].forEach(v => {
+        document.getElementById(v).style.display = 'none';
+      });
+      const el = document.getElementById(id);
+      el.style.display = 'flex';
+    }
+
+    // ─── Solo Mode ────────────────────────────────────────────────────────
+    function startSolo() {
+      showView('loading');
+      document.getElementById('loading-text').textContent = 'Loading DOOM...';
+      loadAndStartDoom([]);
+    }
+
+    // ─── Create Lobby ─────────────────────────────────────────────────────
+    async function createLobby() {
+      const res = await fetch('/api/lobby', { method: 'POST' });
+      const data = await res.json();
+      lobbyId = data.id;
+      isHost = true;
+      window.history.pushState({}, '', `/play/${lobbyId}`);
+      joinLobby(lobbyId);
+    }
+
+    // ─── Join Lobby ───────────────────────────────────────────────────────
+    function joinLobby(id) {
+      showView('lobby');
+
+      const shareUrl = `${window.location.origin}/play/${id}`;
+      document.getElementById('share-url').value = shareUrl;
+      document.getElementById('name-input').value = playerName;
+
+      // Show/hide start button based on host status
+      document.getElementById('start-btn').classList.toggle('hidden', !isHost);
+      document.getElementById('waiting-msg').classList.toggle('hidden', isHost);
+
+      // Generate QR code
+      QRCode.toCanvas(document.getElementById('qr-canvas'), shareUrl, {
+        width: 128,
+        margin: 1,
+        color: { dark: '#000', light: '#fff' },
+      });
+
+      // Connect control WebSocket for lobby state
+      const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      lobbyWs = new WebSocket(`${wsProto}//${window.location.host}/api/ws/${id}?name=${encodeURIComponent(playerName)}`);
+
+      lobbyWs.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'lobby_state') {
+              updateLobbyUI(msg);
+            }
+          } catch {}
+        }
+      };
+
+      lobbyWs.onclose = () => {
+        // If game hasn't started, show disconnect
+        if (!document.getElementById('game-container').style.display ||
+            document.getElementById('game-container').style.display === 'none') {
+          showView('landing');
+        }
+      };
+    }
+
+    function updateLobbyUI(state) {
+      document.getElementById('player-count').textContent = state.playerCount;
+      const list = document.getElementById('player-list');
+      list.innerHTML = state.players.map(p => `<li>${escapeHtml(p.name)}</li>`).join('');
+
+      // If game started and we're not the host, auto-launch
+      if (state.gameStarted && !isHost) {
+        startGame();
+      }
+    }
+
+    function sendName(name) {
+      playerName = name || playerName;
+      if (lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        lobbyWs.send(JSON.stringify({ type: 'name', name: playerName }));
+      }
+    }
+
+    function copyLink() {
+      const input = document.getElementById('share-url');
+      navigator.clipboard.writeText(input.value);
+      const btn = document.querySelector('.btn-copy');
+      btn.textContent = 'COPIED';
+      setTimeout(() => btn.textContent = 'COPY', 2000);
+    }
+
+    // ─── Start Game ───────────────────────────────────────────────────────
+    function startGame() {
+      if (isHost && lobbyWs && lobbyWs.readyState === WebSocket.OPEN) {
+        lobbyWs.send(JSON.stringify({ type: 'game_started' }));
+      }
+
+      // Close the lobby control WebSocket — DOOM will open its own game WebSocket
+      if (lobbyWs) {
+        lobbyWs.close();
+        lobbyWs = null;
+      }
+
+      showView('loading');
+      document.getElementById('loading-text').textContent = 'Loading DOOM engine...';
+
+      const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/${lobbyId}`;
+
+      const doomArgs = lobbyId
+        ? (isHost
+          ? ['-server', '-privateserver', '-dup', '1', '-wss', wsUrl]
+          : ['-connect', '1', '-dup', '1', '-wss', wsUrl])
+        : [];
+
+      loadAndStartDoom(doomArgs);
+    }
+
+    // ─── DOOM Engine Loading ──────────────────────────────────────────────
+    function loadAndStartDoom(extraArgs) {
+      const canvas = document.getElementById('doom-canvas');
+
+      // Size the canvas
+      const scale = Math.min(
+        (window.innerWidth - 32) / 640,
+        (window.innerHeight - 120) / 400
+      );
+      canvas.width = 640;
+      canvas.height = 400;
+      canvas.style.width = `${Math.floor(640 * scale)}px`;
+      canvas.style.height = `${Math.floor(400 * scale)}px`;
+
+      const commonArgs = [
+        '-iwad', 'doom1.wad',
+        '-window',
+        '-nogui',
+        '-nomusic',
+        '-config', 'default.cfg',
+      ];
+
+      // Set up Emscripten Module
+      window.Module = {
+        canvas: canvas,
+        noInitialRun: true,
+        preRun: [function() {
+          // Load WAD into Emscripten virtual filesystem
+          Module.FS.createPreloadedFile('', 'doom1.wad', 'doom1.wad', true, true);
+          Module.FS.createPreloadedFile('', 'default.cfg', 'default.cfg', true, true);
+        }],
+        onRuntimeInitialized: function() {
+          showView('game-container');
+          canvas.focus();
+          Module.callMain([...commonArgs, ...extraArgs]);
+        },
+        print: function(text) {
+          console.log('[DOOM]', text);
+          // Parse doom: protocol messages
+          const match = text.match(/^doom: (\d+), (.+)$/);
+          if (match) {
+            const code = parseInt(match[1]);
+            const msg = match[2];
+            document.getElementById('game-status').textContent = msg;
+          }
+        },
+        printErr: function(text) {
+          console.error('[DOOM]', text);
+        },
+      };
+
+      // Load the Emscripten JS glue (which loads the .wasm)
+      const script = document.createElement('script');
+      script.src = 'websockets-doom.js';
+      script.onerror = () => {
+        showView('landing');
+        alert('Failed to load DOOM engine. Make sure WASM files are built and in /public/');
+      };
+      document.body.appendChild(script);
+    }
+
+    // ─── Utils ────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // Handle fullscreen on double-click
+    document.getElementById('doom-canvas').addEventListener('dblclick', () => {
+      const canvas = document.getElementById('doom-canvas');
+      if (canvas.requestFullscreen) canvas.requestFullscreen();
+    });
+
+    // Resize canvas on window resize
+    window.addEventListener('resize', () => {
+      const canvas = document.getElementById('doom-canvas');
+      if (canvas.width > 0) {
+        const scale = Math.min(
+          (window.innerWidth - 32) / 640,
+          (window.innerHeight - 120) / 400
+        );
+        canvas.style.width = `${Math.floor(640 * scale)}px`;
+        canvas.style.height = `${Math.floor(400 * scale)}px`;
+      }
+    });
+  </script>
+</body>
+</html>

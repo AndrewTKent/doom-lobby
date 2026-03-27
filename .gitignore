@@ -1,0 +1,12 @@
+node_modules/
+.build/
+.wrangler/
+.dev.vars
+
+# WASM build artifacts (built locally, not checked in)
+public/websockets-doom.js
+public/websockets-doom.wasm
+public/websockets-doom.wasm.map
+
+# WAD file (download separately)
+public/doom1.wad

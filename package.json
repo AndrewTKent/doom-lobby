@@ -1,0 +1,20 @@
+{
+  "name": "doom-lobby",
+  "version": "0.1.0",
+  "description": "Instant multiplayer DOOM via Cloudflare Workers. Click link, play DOOM, kill friends.",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "types": "tsc --noEmit",
+    "build-wasm": "./scripts/build-wasm.sh",
+    "fetch-wad": "curl -L -o public/doom1.wad https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad"
+  },
+  "keywords": ["doom", "cloudflare-workers", "durable-objects", "multiplayer", "wasm"],
+  "license": "GPL-2.0",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260317.1",
+    "typescript": "^6.0.2",
+    "wrangler": "^4.78.0"
+  }
+}
