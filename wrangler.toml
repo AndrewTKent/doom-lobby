@@ -9,6 +9,9 @@ bindings = [{ name = "LOBBY", class_name = "DoomLobby" }]
 tag = "v1"
 new_sqlite_classes = ["DoomLobby"]
 
-# WAD + WASM assets served from R2 or static assets
+# WAD + WASM assets served from static assets
 [assets]
 directory = "./public"
+binding = "ASSETS"
+not_found_handling = "none"
+serve_directly = false

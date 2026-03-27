@@ -69,12 +69,9 @@ export default {
       return Response.redirect(`${url.origin}/play/${lobbyId}`, 302);
     }
 
-    // GET /play/:id — serve the game page (handled by static assets with SPA fallback)
-    // The static asset handler will serve public/index.html for these routes
-    // We need to rewrite to index.html for SPA-style routing
+    // GET /play/:id — serve index.html for SPA-style lobby routing
     if (path.match(/^\/play\/[a-z0-9]+$/)) {
-      const assetUrl = new URL("/index.html", url.origin);
-      return env.ASSETS.fetch(new Request(assetUrl, request));
+      return env.ASSETS.fetch(new URL("/index.html", url.origin));
     }
 
     // Everything else → static assets (index.html, doom.js, doom.wasm, etc.)
