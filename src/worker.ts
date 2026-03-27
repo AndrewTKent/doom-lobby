@@ -15,12 +15,17 @@ export interface Env {
 }
 
 function generateLobbyId(): string {
-  const chars = "abcdefghijkmnpqrstuvwxyz23456789"; // no ambiguous chars
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789"; // no ambiguous chars (30)
+  const limit = 256 - (256 % chars.length); // reject bytes >= 240
   let id = "";
-  const bytes = new Uint8Array(6);
-  crypto.getRandomValues(bytes);
-  for (const b of bytes) {
-    id += chars[b % chars.length];
+  while (id.length < 6) {
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    for (const b of bytes) {
+      if (b < limit && id.length < 6) {
+        id += chars[b % chars.length];
+      }
+    }
   }
   return id;
 }
@@ -79,15 +84,22 @@ export default {
 
 // ─── Durable Object: DoomLobby ───────────────────────────────────────────────
 
+const LOBBY_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const RECONNECT_GRACE_MS = 10_000; // 10 seconds
+
+type ConnectionPhase = "lobby" | "game";
+
 interface Player {
   ws: WebSocket;
   from: number; // fake IP (uint32)
   name: string;
   joinedAt: number;
+  phase: ConnectionPhase;
 }
 
 export class DoomLobby implements DurableObject {
   private players: Map<WebSocket, Player> = new Map();
+  private disconnected: Map<string, { player: Player; timer: ReturnType<typeof setTimeout> }> = new Map();
   private gameStarted = false;
 
   constructor(
@@ -100,16 +112,26 @@ export class DoomLobby implements DurableObject {
 
     // Status endpoint
     if (url.pathname === "/status") {
-      const players = [...this.players.values()].map((p) => ({
-        name: p.name,
-        joinedAt: p.joinedAt,
-      }));
+      const uniquePlayers = this.getUniquePlayers();
       return Response.json({
-        players,
-        playerCount: players.length,
+        players: uniquePlayers,
+        playerCount: uniquePlayers.length,
         maxPlayers: 4,
         gameStarted: this.gameStarted,
       });
+    }
+
+    // Check for reconnection (reclaim disconnected slot)
+    const reqName = url.searchParams.get("name") || "";
+    const disconnectedEntry = this.disconnected.get(reqName);
+    if (disconnectedEntry) {
+      clearTimeout(disconnectedEntry.timer);
+      this.disconnected.delete(reqName);
+    }
+
+    // Reject if lobby is full (count unique players, not connections)
+    if (!disconnectedEntry && this.getUniquePlayers().length >= 4) {
+      return Response.json({ error: "Lobby is full", maxPlayers: 4 }, { status: 409 });
     }
 
     // WebSocket upgrade
@@ -117,13 +139,18 @@ export class DoomLobby implements DurableObject {
     const [client, server] = Object.values(pair);
 
     this.state.acceptWebSocket(server);
+    this.state.storage.setAlarm(Date.now() + LOBBY_TTL_MS);
 
-    // Store initial player state (fake IP assigned on first game packet)
+    // Determine phase from query param
+    const phase: ConnectionPhase = url.searchParams.get("phase") === "game" ? "game" : "lobby";
+
+    // Store player state — restore fake IP if reconnecting
     this.players.set(server, {
       ws: server,
-      from: 0,
-      name: new URL(request.url).searchParams.get("name") || `Player ${this.players.size + 1}`,
-      joinedAt: Date.now(),
+      from: disconnectedEntry ? disconnectedEntry.player.from : 0,
+      name: reqName || `Player ${this.players.size + 1}`,
+      joinedAt: disconnectedEntry ? disconnectedEntry.player.joinedAt : Date.now(),
+      phase,
     });
 
     // Notify all players of updated lobby state
@@ -139,14 +166,27 @@ export class DoomLobby implements DurableObject {
         const msg = JSON.parse(message);
         if (msg.type === "name") {
           const player = this.players.get(ws);
-          if (player) {
-            player.name = msg.name;
+          if (player && typeof msg.name === "string") {
+            player.name = msg.name.slice(0, 16).trim() || player.name;
             this.broadcastLobbyState();
           }
         }
         if (msg.type === "game_started") {
           this.gameStarted = true;
           this.broadcastLobbyState();
+        }
+        if (msg.type === "chat") {
+          const player = this.players.get(ws);
+          const chatMsg = JSON.stringify({
+            type: "chat",
+            name: player?.name || "Unknown",
+            text: String(msg.text).slice(0, 200),
+          });
+          for (const [otherWs] of this.players) {
+            if (otherWs.readyState === WebSocket.READY_STATE_OPEN) {
+              otherWs.send(chatMsg);
+            }
+          }
         }
       } catch {
         // ignore malformed JSON
@@ -205,26 +245,65 @@ export class DoomLobby implements DurableObject {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    const player = this.players.get(ws);
     this.players.delete(ws);
+
+    // During a game, hold the slot for reconnection
+    if (player && this.gameStarted && player.phase === "game" && player.from !== 0) {
+      const timer = setTimeout(() => {
+        this.disconnected.delete(player.name);
+        this.broadcastLobbyState();
+      }, RECONNECT_GRACE_MS);
+      this.disconnected.set(player.name, { player, timer });
+    }
+
     this.broadcastLobbyState();
-    if (this.players.size === 0) {
+    if (this.players.size === 0 && this.disconnected.size === 0) {
       this.gameStarted = false;
+      this.state.storage.setAlarm(Date.now() + 30_000);
+    } else {
+      this.state.storage.setAlarm(Date.now() + LOBBY_TTL_MS);
     }
   }
 
   async webSocketError(ws: WebSocket): Promise<void> {
-    this.players.delete(ws);
-    this.broadcastLobbyState();
+    // Delegate to webSocketClose for consistent cleanup + reconnect grace
+    await this.webSocketClose(ws);
+  }
+
+  async alarm(): Promise<void> {
+    if (this.players.size === 0 && this.disconnected.size === 0) {
+      return;
+    }
+    for (const [ws] of this.players) {
+      ws.close(1000, "Lobby timed out");
+    }
+    this.players.clear();
+    for (const [, entry] of this.disconnected) {
+      clearTimeout(entry.timer);
+    }
+    this.disconnected.clear();
+    this.gameStarted = false;
+  }
+
+  private getUniquePlayers(): Array<{ name: string; joinedAt: number }> {
+    const seen = new Set<string>();
+    const unique: Array<{ name: string; joinedAt: number }> = [];
+    for (const p of this.players.values()) {
+      if (!seen.has(p.name)) {
+        seen.add(p.name);
+        unique.push({ name: p.name, joinedAt: p.joinedAt });
+      }
+    }
+    return unique;
   }
 
   private broadcastLobbyState(): void {
+    const uniquePlayers = this.getUniquePlayers();
     const state = JSON.stringify({
       type: "lobby_state",
-      players: [...this.players.values()].map((p) => ({
-        name: p.name,
-        joinedAt: p.joinedAt,
-      })),
-      playerCount: this.players.size,
+      players: uniquePlayers,
+      playerCount: uniquePlayers.length,
       maxPlayers: 4,
       gameStarted: this.gameStarted,
     });
