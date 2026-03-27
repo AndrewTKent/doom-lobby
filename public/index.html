@@ -641,15 +641,13 @@
     function loadAndStartDoom(extraArgs) {
       const canvas = document.getElementById('doom-canvas');
 
-      // Size the canvas
-      const scale = Math.min(
-        (window.innerWidth - 32) / 640,
-        (window.innerHeight - 120) / 400
-      );
-      canvas.width = 640;
-      canvas.height = 400;
-      canvas.style.width = `${Math.floor(640 * scale)}px`;
-      canvas.style.height = `${Math.floor(400 * scale)}px`;
+      // Let SDL/Emscripten control the framebuffer — only set CSS size
+      const maxW = window.innerWidth - 32;
+      const maxH = window.innerHeight - 120;
+      // DOOM's native aspect ratio is 320:200 (8:5)
+      const scale = Math.min(maxW / 320, maxH / 200);
+      canvas.style.width = `${Math.floor(320 * scale)}px`;
+      canvas.style.height = `${Math.floor(200 * scale)}px`;
 
       const commonArgs = [
         '-iwad', 'doom1.wad',
@@ -793,12 +791,11 @@
     window.addEventListener('resize', () => {
       const canvas = document.getElementById('doom-canvas');
       if (canvas.width > 0) {
-        const scale = Math.min(
-          (window.innerWidth - 32) / 640,
-          (window.innerHeight - 120) / 400
-        );
-        canvas.style.width = `${Math.floor(640 * scale)}px`;
-        canvas.style.height = `${Math.floor(400 * scale)}px`;
+        const maxW = window.innerWidth - 32;
+        const maxH = window.innerHeight - 120;
+        const scale = Math.min(maxW / 320, maxH / 200);
+        canvas.style.width = `${Math.floor(320 * scale)}px`;
+        canvas.style.height = `${Math.floor(200 * scale)}px`;
       }
     });
   </script>
