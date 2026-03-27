@@ -183,6 +183,13 @@
       background: #000;
       image-rendering: pixelated;
       cursor: crosshair;
+      max-width: 100%;
+      max-height: calc(100vh - 100px);
+      object-fit: contain;
+    }
+
+    #doom-canvas:focus {
+      outline: 2px solid #c00;
     }
 
     #game-status {
@@ -415,7 +422,7 @@
 
   <!-- Game -->
   <div id="game-container">
-    <canvas id="doom-canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+    <canvas id="doom-canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
     <div id="game-status"></div>
     <div id="kill-feed"></div>
   </div>
@@ -653,6 +660,7 @@
         '-nogui',
         '-nomusic',
         '-config', 'default.cfg',
+        '-warp', '1', '1',
       ];
 
       // Set up Emscripten Module
@@ -790,7 +798,18 @@
     // Keep canvas focused for keyboard input
     document.addEventListener('click', () => {
       const canvas = document.getElementById('doom-canvas');
-      if (canvas && canvas.style.width) canvas.focus();
+      if (canvas && document.getElementById('game-container').style.display === 'flex') {
+        canvas.focus();
+      }
+    });
+
+    // Prevent arrow keys and space from scrolling the page
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
+        if (document.getElementById('game-container').style.display === 'flex') {
+          e.preventDefault();
+        }
+      }
     });
   </script>
 </body>
