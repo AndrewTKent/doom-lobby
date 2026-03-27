@@ -1,6 +1,8 @@
 # DOOM Lobby
 
-<!-- TODO: add demo.gif/demo.svg here once recorded -->
+<p align="center">
+  <img src="public/social-preview.png" alt="DOOM Lobby" width="640">
+</p>
 
 Multiplayer DOOM should not require a 45-minute LAN party setup in 2026. Send a link. Open a browser. You're in a deathmatch.
 

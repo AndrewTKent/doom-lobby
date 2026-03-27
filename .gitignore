@@ -1,5 +1,6 @@
 node_modules/
 .build/
+.emsdk/
 .wrangler/
 .dev.vars
 
