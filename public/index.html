@@ -649,11 +649,15 @@
     function loadAndStartDoom(extraArgs) {
       const canvas = document.getElementById('doom-canvas');
 
-      // SDL expects 800x600 canvas — must match i_video.c window_width/height
+      // SDL renders at 800x600 internally — scale CSS to fill viewport
       canvas.width = 800;
       canvas.height = 600;
-      canvas.style.width = '800px';
-      canvas.style.height = '600px';
+      // Fill viewport maintaining 4:3 aspect ratio
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const scale = Math.min(vw / 800, vh / 600);
+      canvas.style.width = Math.floor(800 * scale) + 'px';
+      canvas.style.height = Math.floor(600 * scale) + 'px';
 
       const commonArgs = [
         '-iwad', 'doom1.wad',
@@ -798,6 +802,18 @@
         document.getElementById('touch-controls').style.display = id === 'game-container' ? 'block' : 'none';
       }
     };
+
+    // Resize canvas to fill viewport
+    window.addEventListener('resize', () => {
+      const canvas = document.getElementById('doom-canvas');
+      if (canvas.width === 800) {
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const scale = Math.min(vw / 800, vh / 600);
+        canvas.style.width = Math.floor(800 * scale) + 'px';
+        canvas.style.height = Math.floor(600 * scale) + 'px';
+      }
+    });
 
     // Keep canvas focused for keyboard input
     document.addEventListener('click', () => {
