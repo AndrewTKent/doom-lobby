@@ -415,7 +415,7 @@
 
   <!-- Game -->
   <div id="game-container">
-    <canvas id="doom-canvas" tabindex="1"></canvas>
+    <canvas id="doom-canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
     <div id="game-status"></div>
     <div id="kill-feed"></div>
   </div>
@@ -660,6 +660,11 @@
       ];
 
       // Set up Emscripten Module
+      canvas.addEventListener('webglcontextlost', function(e) {
+        alert('WebGL context lost. Reload the page.');
+        e.preventDefault();
+      }, false);
+
       window.Module = {
         canvas: canvas,
         setStatus: function(text) {
@@ -687,7 +692,7 @@
         onRuntimeInitialized: function() {
           showView('game-container');
           canvas.focus();
-          Module.callMain([...commonArgs, ...extraArgs]);
+          callMain([...commonArgs, ...extraArgs]);
         },
         print: function(text) {
           console.log('[DOOM]', text);
