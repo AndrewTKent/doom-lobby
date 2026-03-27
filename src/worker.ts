@@ -35,6 +35,18 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
+    // POST /api/debug — client telemetry
+    if (path === "/api/debug" && request.method === "POST") {
+      const body = await request.text();
+      console.log("[DEBUG]", body);
+      return Response.json({ ok: true });
+    }
+
+    // GET /api/debug — retrieve recent logs
+    if (path === "/api/debug" && request.method === "GET") {
+      return Response.json({ message: "Use wrangler tail to view debug logs" });
+    }
+
     // POST /api/lobby — create new lobby
     if (path === "/api/lobby" && request.method === "POST") {
       const lobbyId = generateLobbyId();

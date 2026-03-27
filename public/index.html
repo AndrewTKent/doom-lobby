@@ -815,6 +815,77 @@
         }
       }
     });
+
+    // ─── Debug Telemetry ─────────────────────────────────────────────
+    const debugLog = [];
+    function dbg(msg) {
+      const entry = Date.now() + ' ' + msg;
+      debugLog.push(entry);
+      console.log('[DBG] ' + msg);
+    }
+
+    function flushDebug() {
+      if (debugLog.length === 0) return;
+      const batch = debugLog.splice(0);
+      fetch('/api/debug', {
+        method: 'POST',
+        body: JSON.stringify({ ua: navigator.userAgent, logs: batch }),
+      }).catch(() => {});
+    }
+
+    // Report every 3 seconds
+    setInterval(flushDebug, 3000);
+
+    // Track focus
+    window.addEventListener('focus', () => dbg('window.focus'));
+    window.addEventListener('blur', () => dbg('window.blur'));
+    document.getElementById('doom-canvas').addEventListener('focus', () => dbg('canvas.focus'));
+    document.getElementById('doom-canvas').addEventListener('blur', () => dbg('canvas.blur'));
+
+    // Track ALL keyboard events at window level
+    window.addEventListener('keydown', (e) => {
+      dbg('keydown key=' + e.key + ' code=' + e.code + ' target=' + e.target?.tagName + '#' + e.target?.id + ' active=' + document.activeElement?.tagName + '#' + document.activeElement?.id + ' prevented=' + e.defaultPrevented);
+    }, true); // capture phase — fires before everything else
+
+    window.addEventListener('keyup', (e) => {
+      dbg('keyup key=' + e.key + ' code=' + e.code);
+    }, true);
+
+    // Track mouse clicks
+    window.addEventListener('click', (e) => {
+      dbg('click target=' + e.target?.tagName + '#' + e.target?.id + ' x=' + Math.round(e.clientX) + ' y=' + Math.round(e.clientY) + ' active=' + document.activeElement?.tagName + '#' + document.activeElement?.id);
+    }, true);
+
+    // Track pointer lock
+    document.addEventListener('pointerlockchange', () => {
+      dbg('pointerlockchange locked=' + !!document.pointerLockElement + ' el=' + (document.pointerLockElement?.id || 'none'));
+    });
+
+    // Track canvas state on game start
+    const origShowViewForDebug = showView;
+    showView = function(id) {
+      origShowViewForDebug(id);
+      dbg('showView=' + id);
+      if (id === 'game-container') {
+        const c = document.getElementById('doom-canvas');
+        dbg('canvas w=' + c.width + ' h=' + c.height + ' cssW=' + c.style.width + ' cssH=' + c.style.height + ' tabIndex=' + c.tabIndex);
+        setTimeout(() => {
+          dbg('active=' + document.activeElement?.tagName + '#' + document.activeElement?.id);
+          flushDebug();
+        }, 1000);
+      }
+    };
+
+    // Report errors
+    window.addEventListener('error', (e) => {
+      dbg('ERROR: ' + e.message + ' at ' + e.filename + ':' + e.lineno);
+      flushDebug();
+    });
+
+    // Flush on unload
+    window.addEventListener('beforeunload', flushDebug);
+
+    dbg('telemetry initialized');
   </script>
 </body>
 </html>
