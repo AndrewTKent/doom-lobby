@@ -641,13 +641,9 @@
     function loadAndStartDoom(extraArgs) {
       const canvas = document.getElementById('doom-canvas');
 
-      // Let SDL/Emscripten control the framebuffer — only set CSS size
-      const maxW = window.innerWidth - 32;
-      const maxH = window.innerHeight - 120;
-      // DOOM's native aspect ratio is 320:200 (8:5)
-      const scale = Math.min(maxW / 320, maxH / 200);
-      canvas.style.width = `${Math.floor(320 * scale)}px`;
-      canvas.style.height = `${Math.floor(200 * scale)}px`;
+      // Fixed CSS size — SDL/Emscripten controls the framebuffer
+      canvas.style.width = '800px';
+      canvas.style.height = '600px';
 
       const commonArgs = [
         '-iwad', 'doom1.wad',
@@ -689,7 +685,9 @@
         }],
         onRuntimeInitialized: function() {
           showView('game-container');
+          // DOOM needs the canvas focused for keyboard input
           canvas.focus();
+          setTimeout(() => canvas.focus(), 100);
           callMain([...commonArgs, ...extraArgs]);
         },
         print: function(text) {
@@ -787,16 +785,10 @@
       }
     };
 
-    // Resize canvas on window resize
-    window.addEventListener('resize', () => {
+    // Keep canvas focused for keyboard input
+    document.addEventListener('click', () => {
       const canvas = document.getElementById('doom-canvas');
-      if (canvas.width > 0) {
-        const maxW = window.innerWidth - 32;
-        const maxH = window.innerHeight - 120;
-        const scale = Math.min(maxW / 320, maxH / 200);
-        canvas.style.width = `${Math.floor(320 * scale)}px`;
-        canvas.style.height = `${Math.floor(200 * scale)}px`;
-      }
+      if (canvas && canvas.style.width) canvas.focus();
     });
   </script>
 </body>
