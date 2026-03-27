@@ -175,21 +175,22 @@
       display: none;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       flex: 1;
       width: 100%;
+      height: 100vh;
     }
 
     #doom-canvas {
       background: #000;
       image-rendering: pixelated;
       cursor: crosshair;
-      max-width: 100%;
-      max-height: calc(100vh - 100px);
-      object-fit: contain;
+      max-width: 100vw;
+      max-height: 100vh;
     }
 
     #doom-canvas:focus {
-      outline: 2px solid #c00;
+      outline: none;
     }
 
     #game-status {
@@ -660,7 +661,6 @@
         '-nogui',
         '-nomusic',
         '-config', 'default.cfg',
-        '-warp', '1', '1',
       ];
 
       // Set up Emscripten Module
@@ -695,9 +695,12 @@
         }],
         onRuntimeInitialized: function() {
           showView('game-container');
+          // Hide header during gameplay to maximize space
+          document.getElementById('header').style.display = 'none';
           // DOOM needs the canvas focused for keyboard input
           canvas.focus();
           setTimeout(() => canvas.focus(), 100);
+          setTimeout(() => canvas.focus(), 500);
           callMain([...commonArgs, ...extraArgs]);
         },
         print: function(text) {
