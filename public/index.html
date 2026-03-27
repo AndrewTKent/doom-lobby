@@ -641,7 +641,9 @@
     function loadAndStartDoom(extraArgs) {
       const canvas = document.getElementById('doom-canvas');
 
-      // Fixed CSS size — SDL/Emscripten controls the framebuffer
+      // SDL expects 800x600 canvas — must match i_video.c window_width/height
+      canvas.width = 800;
+      canvas.height = 600;
       canvas.style.width = '800px';
       canvas.style.height = '600px';
 
