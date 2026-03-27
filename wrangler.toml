@@ -7,7 +7,7 @@ bindings = [{ name = "LOBBY", class_name = "DoomLobby" }]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["DoomLobby"]
+new_sqlite_classes = ["DoomLobby"]
 
 # WAD + WASM assets served from R2 or static assets
 [assets]
